@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-07-03
+
+### Fixed
+- Load Power sensor now correctly nets off PV generation on non-AC-coupled
+  (DC-coupled/hybrid) systems. Previously the calculation only read AC
+  Coupled PV Power (P237), which stays at 0 on non-AC-coupled hardware,
+  causing Load Power to be overstated by the full PV generation amount
+  during daylight hours on those systems. Now sums P060 (PV Total Power)
+  and P237, which are mutually exclusive by hardware type — one is always
+  0 depending on coupling configuration — so the fix works correctly on
+  both AC-coupled and non-AC-coupled systems without needing to know
+  which type is connected.
+- Corrected the battery sign convention used in the Load Power
+  calculation. An interim version of this fix incorrectly applied the
+  same -1.0 sign flip used by the displayed "Battery Power" sensor,
+  which caused Load Power to be significantly overstated while charging
+  (a 1700W charge was being added to Load instead of subtracted). The
+  raw P069 register already uses the correct sign convention for this
+  formula as-is; the -1.0 flip is specific to the separate, inverted
+  user-facing "Battery Power" sensor and should not be reapplied here.
+
+Thanks to a community contributor for identifying the original
+non-AC-coupled gap and confirming register behaviour across both
+hardware types.
+
 ## [1.0.7] - 2026-07-03
 
 ### Fixed
@@ -69,7 +94,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   sensors
 
 
-[Unreleased]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.7...HEAD
+[Unreleased]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.8...HEAD
+[1.0.8]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.6...v1.0.7  
 [1.0.6]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.4...v1.0.5
