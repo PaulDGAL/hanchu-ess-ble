@@ -444,17 +444,19 @@ class HanchuLoadPowerSensor(HanchuCoordinatorEntity, SensorEntity):
           defensively since PV can only ever be a source, never a load,
           and sign convention has been observed to vary by
           hardware/firmware version.
-        - P069 (Battery): raw register is inverted relative to the
-          displayed "Battery Power" sensor (see
-          REGISTER_SCALE_FACTORS["P069"] = -1.0), so the same -1.0 flip is
-          applied here to match: positive = discharging (adds to load),
-          negative = charging (subtracts).
+        - P069 (Battery): the raw register value already uses the correct
+          sign convention for this formula as-is — positive = discharging
+          (adds to load), negative = charging (subtracts). Do NOT apply
+          the REGISTER_SCALE_FACTORS["P069"] = -1.0 flip here; that flip
+          exists only for the displayed "Battery Power" sensor's separate,
+          inverted user-facing convention, and applying it here produces
+          an incorrect (inflated) Load Power figure.
         """
         values = self.coordinator.data.values or {}
         try:
             grid = float(values.get("P644") or 0)
             pv = abs(float(values.get("P060") or 0)) + abs(float(values.get("P237") or 0))
-            battery = float(values.get("P069") or 0) * -1.0
+            battery = float(values.get("P069") or 0)
             return round(grid + pv + battery, 1)
         except (ValueError, TypeError):
             return None
