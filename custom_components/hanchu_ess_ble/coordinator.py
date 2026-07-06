@@ -21,6 +21,7 @@ from .const import (
     CONF_DEVICE_NAME,
     DEFAULT_NAME,
     FAST_POLL_KEYS,
+    MAX_CONSECUTIVE_FAILURES,
     SLOW_POLL_KEYS,
     DOMAIN,
     SCAN_INTERVAL,
@@ -149,14 +150,39 @@ class HanchuBleCoordinator(DataUpdateCoordinator[HanchuCoordinatorData]):
             reply = await self.client.async_read_values(poll_keys, encrypted=True)
         except Exception as err:
             self._consecutive_failures += 1
+            cycle_duration = round(time.monotonic() - cycle_start, 2)
             _LOGGER.debug(
                 "Failed Hanchu coordinator refresh for address=%s (consecutive failures=%d)",
                 self.address,
                 self._consecutive_failures,
                 exc_info=True,
             )
-            # Carry forward existing diagnostic values, updating failure count.
-            raise UpdateFailed(f"Failed to read inverter values: {err}") from err
+
+            if self._consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                # Too many failures in a row — escalate to a real failure so
+                # HA surfaces it and entities correctly reflect a stale/dead
+                # state rather than silently persisting old values forever.
+                raise UpdateFailed(f"Failed to read inverter values: {err}") from err
+
+            # Below threshold: treat as a transient miss. Carry forward the
+            # last known values (via _build_data's merge path, triggered by
+            # values=None) instead of failing the whole coordinator update,
+            # so entities don't flicker unavailable on every dropped read.
+            _LOGGER.warning(
+                "Hanchu BLE read failed for address=%s (%d/%d consecutive "
+                "failures), retaining last known values: %s",
+                self.address,
+                self._consecutive_failures,
+                MAX_CONSECUTIVE_FAILURES,
+                err,
+            )
+            return self._build_data(
+                snapshot,
+                is_present=True,
+                values=None,
+                consecutive_failures=self._consecutive_failures,
+                last_cycle_duration=cycle_duration,
+            )
 
         cycle_duration = round(time.monotonic() - cycle_start, 2)
 
