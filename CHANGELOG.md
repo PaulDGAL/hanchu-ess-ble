@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.0.10]
+
+### Added
+
+Firmware version sensors (Main, Safety, ARM) moved to the Diagnostics category, with clearer naming.
+RTC/timezone diagnostic sensors: Timezone (L020), RTC Register L094 (Unix epoch timestamp, exposed as a proper Home Assistant timestamp entity), and RTC Daylight Saving Offset (L096) — useful for confirming the inverter's onboard clock hasn't drifted.
+
+### Changed
+
+Slow-poll rotation now covers 10 keys (up from 7), so each individual slow-tier sensor refreshes roughly every 5 minutes rather than 3.5. See README for details.
+
+## [1.0.9] - 2026-07-06
+
+### Fixed
+Sensors no longer go unavailable on a single failed BLE read (#8). Previously, any read failure — even an isolated one-off — would cause the coordinator to raise UpdateFailed, which marked every sensor unavailable regardless of whether its underlying data was still valid.
+The coordinator now tolerates transient failures, retaining last-known values and only escalating to UpdateFailed after MAX_CONSECUTIVE_FAILURES (default: 3) consecutive misses in a row.
+Validation
+Fix has been soak-tested overnight (~9 hours) in a live environment: 20 isolated single-cycle read failures occurred, none compounded past 1/3, and sensors remained available throughout the entire test window.
+Technical details
+Added MAX_CONSECUTIVE_FAILURES constant (const.py).
+coordinator.py: _async_update_data now carries forward last-known values via the existing _build_data merge path on failures below threshold, instead of raising immediately on the first failure.
+Thanks
+Thanks to @PaulDGAL for the detailed original bug report that made this straightforward to diagnose and fix.
+
 ## [1.0.8] - 2026-07-03
 
 ### Fixed
@@ -94,7 +118,9 @@ hardware types.
   sensors
 
 
-[Unreleased]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.8...HEAD
+[Unreleased]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.10...HEAD
+[1.0.10]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.9...v1.0.10
+[1.0.9]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.8...v1.0.9  
 [1.0.8]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.6...v1.0.7  
 [1.0.6]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.5...v1.0.6
