@@ -506,7 +506,7 @@ class HanchuRtcTimestampSensor(HanchuCoordinatorEntity, SensorEntity):
     """
 
     _attr_name = "RTC Register L094"
-    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_device_class = None
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:clock-outline"
 
