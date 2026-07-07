@@ -113,12 +113,16 @@ SLOW_POLL_KEYS: tuple[str, ...] = (
     "P005",  # Inverter Power Limit
     "P088",  # Battery Capacity (Ah)
     "L034",  # Meter Type
+    # RTC / clock diagnostics — for verifying inverter's onboard clock
+    "L020",  # Timezone
+    "L094",  # RTC Unix Epoch Timestamp
+    "L096",  # RTC Daylight Saving Offset (minutes)
 )
 
 # The coordinator advances through SLOW_POLL_KEYS one entry per scan cycle,
 # so each slow key is refreshed approximately every:
 #   DEFAULT_SCAN_INTERVAL_SECONDS * len(SLOW_POLL_KEYS) seconds
-# At 30s interval with 7 slow keys that is ~3.5 minutes per slow key.
+# At 30s interval with 10 slow keys that is ~3.5 minutes per slow key.
 # Adjust DEFAULT_SCAN_INTERVAL_SECONDS if a shorter or longer slow refresh
 # period is needed.
 
@@ -205,7 +209,10 @@ REGISTER_INFO: dict[str, str] = {
     "L016": "Discharge Slot 3 End",
     "L017": "Charge Power Limit",
     "L018": "Discharge Power Limit",
+    "L020": "Timezone",
     "L023": "DTU Firmware Version",
     "L034": "Meter Type",
     "L074": "Max SOC Limit (Grid Charge)",
+    "L094": "RTC Unix Epoch Timestamp",
+    "L096": "RTC Daylight Saving Offset",
 }
