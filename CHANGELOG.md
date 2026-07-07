@@ -6,7 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [1.0.10]
+## [1.0.11] - 2026-07-07
+
+### Changed
+
+RTC Register L094 no longer uses SensorDeviceClass.TIMESTAMP. Previously this caused Home Assistant to show a relative "X ago" value on the entity row, requiring a tap into the detail view to see the actual date/time. It now displays the absolute date/time directly.
+The underlying value is unchanged — still a proper, timezone-aware datetime derived from the raw epoch register — so this is a display-only change with no impact on the accuracy of the sensor.
+
+## [1.0.10] - 2026-07-07
 
 ### Added
 
@@ -118,7 +125,8 @@ hardware types.
   sensors
 
 
-[Unreleased]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.10...HEAD
+[Unreleased]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.11...HEAD
+[1.0.11]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.8...v1.0.9  
 [1.0.8]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.7...v1.0.8
