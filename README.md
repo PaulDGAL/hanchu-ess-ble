@@ -92,6 +92,22 @@ This integration is a fork of [Blustery7752's hanchu-ess-ble](https://github.com
 
 Battery Voltage, Battery Current, Active Power, Reactive Power, Power Factor, Battery Charge Today, Battery Discharge Today, PV Energy Today/Total, EPS Energy Today/Total.
 
+### New in v1.0.10: Firmware & RTC Diagnostics
+
+Firmware version sensors (Main, Safety, ARM) are now categorised under
+Diagnostics. Three new diagnostic sensors have also been added to help
+verify the inverter's onboard clock:
+
+- **Timezone** (`L020`) — IANA timezone string reported by the DTU (e.g. `Europe/London`)
+- **RTC Register L094** — the DTU's current Unix epoch time, exposed as a proper Home Assistant timestamp
+- **RTC Daylight Saving Offset** (`L096`) — DST offset in minutes (e.g. `60` during BST, `0` during GMT)
+
+These are most useful for troubleshooting: if `RTC Register L094` reads
+noticeably different from actual current time, it indicates the inverter's
+onboard clock has drifted, which could affect any scheduling that relies on
+the inverter's own internal clock rather than commands sent live from Home
+Assistant.
+
 ---
 
 ## Polling
@@ -100,8 +116,13 @@ Registers are split into two tiers to reduce BLE load on the inverter:
 
 **Fast poll (every 30 seconds)** — real-time values: power flows, battery SOC, voltage, current, temperature, grid readings, work mode, charge/discharge slots and limits.
 
-**Slow poll (rotating)** — static or rarely-changing values: Main, Safety, ARM, and DTU firmware versions, Inverter Power Limit, Battery Capacity, and Meter Type. One slow register is requested per cycle, so each is refreshed approximately every 3.5 minutes.
+### Slow-Poll Rotation
 
+Static or rarely-changing values (firmware versions, hardware configuration,
+RTC/timezone diagnostics) are polled one key per cycle on a rotating basis,
+rather than every cycle. With the default 30-second scan interval and 10
+slow-poll keys, each individual slow-tier sensor refreshes approximately
+every 5 minutes.
 Slow poll values persist their last known reading between updates — sensors will not show as unavailable simply because a slow register was not included in the current cycle.
 
 **Startup behaviour** — after a restart, slow-tier sensors will show as unavailable for the first few minutes while the rotation works through all seven slow keys for the first time (~3.5 minutes at the default interval). This is expected and not a sign of a problem.
