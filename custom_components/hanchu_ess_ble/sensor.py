@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -88,6 +90,16 @@ REGISTER_SENSORS: dict[str, SensorEntityDescription] = {
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         enabled_default=False,
+    ),
+    "P006": _register_description(
+        key="P006",
+        name="Main Firmware Version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    "P007": _register_description(
+        key="P007",
+        name="Safety Firmware Version",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     "P024": _register_description(
         key="P024",
@@ -287,6 +299,11 @@ REGISTER_SENSORS: dict[str, SensorEntityDescription] = {
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    "P139": _register_description(
+        key="P139",
+        name="ARM Firmware Version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
     "P237": _register_description(
         key="P237",
         name="AC Coupled PV Power",
@@ -301,9 +318,21 @@ REGISTER_SENSORS: dict[str, SensorEntityDescription] = {
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    "L020": _register_description(
+        key="L020",
+        name="Timezone",
+        icon="mdi:map-clock",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
     "L023": _register_description(
         key="L023",
         name="DTU Firmware Version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    "L096": _register_description(
+        key="L096",
+        name="RTC Daylight Saving Offset",
+        icon="mdi:clock-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
 }
@@ -322,10 +351,16 @@ async def async_setup_entry(
         k for k in SLOW_POLL_KEYS if k not in FAST_POLL_KEYS
     )
 
+    # L094 gets its own dedicated timestamp sensor (see HanchuRtcTimestampSensor)
+    # rather than going through the generic register sensor path, since it
+    # needs conversion from raw epoch int to a proper datetime object.
+    generic_register_keys = tuple(k for k in all_register_keys if k != "L094")
+
     entities: list[SensorEntity] = [
         *(HanchuDiagnosticSensor(coordinator, description) for description in SENSORS),
         *(HanchuBleDiagnosticSensor(coordinator, description) for description in DIAGNOSTIC_BLE_SENSORS),
         HanchuLoadPowerSensor(coordinator),
+        HanchuRtcTimestampSensor(coordinator),
         *(
             HanchuRegisterSensor(
                 coordinator,
@@ -339,7 +374,7 @@ async def async_setup_entry(
                     ),
                 ),
             )
-            for register_key in all_register_keys
+            for register_key in generic_register_keys
         ),
     ]
     async_add_entities(entities)
@@ -459,6 +494,37 @@ class HanchuLoadPowerSensor(HanchuCoordinatorEntity, SensorEntity):
             battery = float(values.get("P069") or 0)
             return round(grid + pv + battery, 1)
         except (ValueError, TypeError):
+            return None
+
+
+class HanchuRtcTimestampSensor(HanchuCoordinatorEntity, SensorEntity):
+    """RTC Unix epoch register (L094) exposed as a proper HA timestamp.
+
+    The raw register is a Unix epoch integer. The generic HanchuRegisterSensor
+    has no concept of converting that to a datetime, so this key is handled by
+    a dedicated sensor class instead of going through REGISTER_SENSORS.
+    """
+
+    _attr_name = "RTC Register L094"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:clock-outline"
+
+    def __init__(self, coordinator: HanchuBleCoordinator) -> None:
+        """Initialise the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.address}_l094_rtc_timestamp"
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the RTC epoch value as a timezone-aware datetime."""
+        values = self.coordinator.data.values or {}
+        raw = values.get("L094")
+        if raw is None:
+            return None
+        try:
+            return datetime.fromtimestamp(int(raw), tz=timezone.utc)
+        except (ValueError, TypeError, OSError):
             return None
 
 # ---------------------------------------------------------------------------
