@@ -1,6 +1,6 @@
 # Hanchu iESS Local BLE Protocol — Parameter Mapping Reference
 
-Status as of June 2026. Compiled from: the `hanchu_ess_ble` fork's live BLE reads/writes (HA Green + M5Stack Atom Lite BLE proxy), the [1ulk Hanchu BLE Controller](https://github.com/1ulk/1ulk.github.io) (`hanchu-params.js` / `hanchu-controller.js`), and cross-referencing against the Hanchu cloud app and a working cloud-based HA integration.
+Status as of July 2026. Compiled from: the `hanchu_ess_ble` fork's live BLE reads/writes (HA Green + M5Stack Atom Lite BLE proxy), the [1ulk Hanchu BLE Controller](https://github.com/1ulk/1ulk.github.io) (`hanchu-params.js` / `hanchu-controller.js`), and cross-referencing against the Hanchu cloud app and a working cloud-based HA integration.
 
 **Scope note:** this document maps every code investigated, including many not exposed as entities by default. The integration's built entities mirror the common cloud integration entity list. Everything else here is a reference for anyone wanting to expose additional codes using the same `async_read_values()` / `async_write_value()` pattern.
 
@@ -24,6 +24,7 @@ These were discovered during live testing and are critical for correct operation
 - **CoordinatorEntity for write entities** — select/number/time entities must inherit `CoordinatorEntity` so their displayed state stays live across coordinator poll cycles. Without this, values get stuck at "unknown" after an integration reload.
 - **asyncio.Lock for BLE connection** — `HanchuBleClient` holds a connection lock acquired by both reads and writes. Without this, the coordinator's scheduled poll can collide with a manual write, causing 20s+ connect timeouts and failed operations.
 - **Hardened packet parsing** — `parse_packet()` logs-and-skips rather than raising on unrecognised notification types, so unexpected device responses (e.g. plaintext error messages) don't crash the active operation.
+- **Epoch registers need explicit datetime conversion** — a register returning a raw Unix epoch integer (e.g. L094) will display as a meaningless, constantly-different number if exposed as a plain sensor. It must be given `device_class=SensorDeviceClass.TIMESTAMP` and have its value converted via `datetime.fromtimestamp(value, tz=timezone.utc)` before being returned from `native_value` — HA does not auto-convert raw integers for the timestamp device class.
 
 ---
 
@@ -77,6 +78,9 @@ These were discovered during live testing and are critical for correct operation
 | **P644** | **Grid Power** | **Live grid import/export** | **W** | **Confirmed live. Positive = importing, negative = exporting** |
 | L023 | DTU Firmware Version | | | e.g. 1.9.0 |
 | L034 | Meter Type / CT Meter Version | 0 = no meter, 3 = specific supported meter | | |
+| L020 | Timezone | IANA timezone code reported by the DTU | | Confirmed readable — e.g. "Europe/London". Earlier notes assumed write-only; live testing (v1.0.10) confirmed it also returns correctly on read |
+| L094 | RTC Unix Epoch Timestamp | Current Unix epoch time as reported by the DTU's onboard RTC | s (epoch) | Confirmed matches real-world time within normal poll-cycle drift. Exposed as `SensorDeviceClass.TIMESTAMP` via `datetime.fromtimestamp(value, tz=timezone.utc)` — raw integer alone displays as a meaningless incrementing number if not converted |
+| L096 | RTC Daylight Saving Offset | DST offset as reported by the DTU | min | **Correction to original hypothesis** — earlier notes assumed hours; live testing (v1.0.10) confirmed the value is in **minutes** (60 during BST, expected 0 during GMT), consistent with a standard one-hour DST shift |
 
 ---
 
@@ -116,10 +120,7 @@ Codes identified in the 1ulk `hanchu-params.js` registry but not currently expos
 
 | Code | Name | Description | Notes |
 |---|---|---|---|
-| L020 | Timezone | IANA timezone code for the DTU | e.g. "Europe/London" — write only, relevant only for DTU clock sync |
 | L021 | Clear WiFi Password | Write trigger to clear stored WiFi credentials | Write only — not suitable as a polled sensor |
-| L094 | Unix Timestamp | Current Unix epoch timestamp set on the DTU | Could be used to verify DTU clock accuracy |
-| L096 | Timezone Offset | UTC offset in hours (timeZoneOffsetActCode) | Read counterpart to L020 |
 
 ---
 
@@ -172,5 +173,4 @@ Tested via live BLE reads but purpose unconfirmed:
 
 - **[Blustery7752](https://github.com/Blustery7752/hanchu-ess-ble)** — original `hanchu-ess-ble` integration providing the BLE connection, encryption, and read foundation
 - **[1ulk](https://github.com/1ulk/1ulk.github.io)** — Hanchu BLE Controller web app whose `hanchu-params.js` parameter registry and `hanchu-controller.js` write implementation were essential references
-- **PaulDGAL** — real-world testing identifying BLE load and sign convention issues, and proposing the tiered polling approach
-- 
+- **PaulDGAL** — real-world testing identifying BLE load and sign convention issues, proposing the tiered polling approach, and discovering/mapping the RTC and firmware diagnostic registers (L020, L094, L096) later implemented in v1.0.10
