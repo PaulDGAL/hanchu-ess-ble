@@ -14,7 +14,12 @@ DEFAULT_NAME = "Hanchu ESS"
 DEFAULT_SCAN_INTERVAL_SECONDS = 30
 MAX_CONSECUTIVE_FAILURES = 3
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT, Platform.NUMBER, Platform.TIME]
+PLATFORMS: list[Platform] = [Platform.SENSOR,                                
+                                Platform.SELECT,
+                                Platform.NUMBER,
+                                Platform.TIME,
+                                Platform.SWITCH]
+
 SCAN_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS)
 
 MANUFACTURER = "Hanchu"
@@ -45,6 +50,8 @@ BLE_WRITE_CHARACTERISTIC_UUID = "0000ff02-0000-1000-8000-00805f9b34fb"
 # ---------------------------------------------------------------------------
 
 FAST_POLL_KEYS: tuple[str, ...] = (
+    # Inverter Control
+    "P500",  # Inverter On/Off - Use with extreme
     # PV input
     "P024",  # PV1 Voltage
     "P025",  # PV1 Current
