@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-04
+
+### Fixed
+
+**Battery pack coordinators (HanchuBatteryCoordinator) would perform their first refresh successfully at startup, then never update again automatically.** Entities showed increasingly stale data — sometimes for hours — with no error logged and Consecutive BLE Failures stuck at 0, since the coordinator's own scheduled refresh was never actually re-arming itself after the first cycle.
+**Root cause:** DataUpdateCoordinator's built-in automatic rescheduling was not reliably reactivating for these sub-coordinators, which are created dynamically inside the parent inverter coordinator's own async_setup() rather than through the normal top-level config-entry setup flow. A manual refresh (e.g. via homeassistant.update_entity) always worked correctly, confirming the read pipeline itself was healthy — only the automatic scheduling was affected.
+**Fixed** by having HanchuBatteryCoordinator drive its own periodic refresh explicitly via async_track_time_interval, with the base class's own scheduling disabled (update_interval=None) to avoid the two mechanisms conflicting.
+
+## [1.1.1] - 2026-08-08
+
+### Added
+PV3 Voltage and Current sensors (P028, P029) for inverters with a third MPPT string, following the same register offset pattern as PV1 (P024/P025) and PV2 (P026/P027). Confirmed against real 3-MPPT hardware and contributed by @techjlb.
+
+## [1.1.0] - 2026-08-01
+
+### Added
+Battery pack support. Individual battery packs can now be configured and polled independently of the inverter, each showing up as its own separate device in Home Assistant with its own sensors:
+Battery SoC, Pack Voltage, Battery Temperature, Environmental Temperature, PCBA Temperature, Battery Current
+Serial Number, Hardware Version, Model, and Firmware Version (diagnostic category)
+The same BLE polling health diagnostics (Last Successful Read, Consecutive Failures, Cycle Duration) already available for the inverter
+Battery packs are configured via a new Options flow (Settings → Devices & Services → the integration → Configure), where any discovered battery loggers (device names beginning HC:L101) can be selected. None are polled by default — this is fully opt-in.
+Battery polling runs on its own 300-second interval, independently of the inverter's fast poll cycle, with the same consecutive-failure tolerance pattern used for the inverter — a battery BLE issue cannot affect inverter sensor availability, and issues with one battery cannot affect another.
+### Changed
+Added explicit display precision to the new battery voltage/current/temperature/SoC sensors, since Home Assistant's automatic precision detection can lock in at 0 decimal places if an entity's earliest readings happen to look like whole numbers.
+### Notes
+Battery packs must be visible to the same Bluetooth proxy already polling your inverter. As with the inverter itself, an M5Stack Atom Lite running ESPHome's Bluetooth proxy firmware is the only setup verified reliable for this integration — other Bluetooth sources may not connect to the battery packs reliably even if they can see the inverter.
+Confirmed working against real hardware: two battery packs polled successfully in parallel with the inverter, with live SoC/voltage/current/temperature tracking correctly against the official app's own readings.
+
 ## [1.0.11] - 2026-07-07
 
 ### Changed
@@ -125,7 +153,10 @@ hardware types.
   sensors
 
 
-[Unreleased]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.11...HEAD
+[Unreleased]: https://github.com/upton68/hanchu-ess-ble/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/upton68/hanchu-ess-ble/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/upton68/hanchu-ess-ble/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.11...v1.1.0
 [1.0.11]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/upton68/hanchu-ess-ble/compare/v1.0.8...v1.0.9  
